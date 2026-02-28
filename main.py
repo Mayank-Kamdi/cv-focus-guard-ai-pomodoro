@@ -16,6 +16,7 @@ from config import (
     COLLAB_CODE_LENGTH,
     COLLAB_POLL_INTERVAL_MS,
     DATA_DIR,
+    WEBCAM_UPDATE_INTERVAL,
 )
 from logger import logger as app_logger
 
@@ -96,6 +97,9 @@ class PomodoroTimer:
             app_logger.warning("Audio init failed: %s", exc)
         self.cap = None
         self.camera_active = False
+        # Throttle UI polling; CV work runs on the UI thread in update_webcam().
+        # Keep this interval modest to avoid starving the Tk event loop.
+        self.webcam_update_interval_ms = max(15, int(WEBCAM_UPDATE_INTERVAL))
         self.mp_face_mesh = mp.solutions.face_mesh
         self.face_mesh = None
         self.mp_drawing = mp.solutions.drawing_utils
@@ -1013,22 +1017,25 @@ class PomodoroTimer:
         self.timer_thread.start()
 
     def update_webcam(self):
+        # IMPORTANT: schedule the next callback exactly once per invocation.
+        delay_ms = 200
         try:
             if not self.camera_active:
                 self.webcam_label.configure(image=None)
-                self.root.after(200, self.update_webcam)
                 return
+
+            delay_ms = self.webcam_update_interval_ms
 
             if self.cap is None or not self.cap.isOpened():
                 self.start_camera()
 
             if self.cap is None or not self.cap.isOpened():
-                self.root.after(200, self.update_webcam)
+                delay_ms = 200
                 return
 
             ret, frame = self.cap.read()
             if not ret:
-                self.root.after(200, self.update_webcam)
+                delay_ms = 200
                 return
 
             frame = cv2.flip(frame, 1)
@@ -1101,8 +1108,9 @@ class PomodoroTimer:
             self.stop_camera()
             self.unfocused_counter = 0
             self.unfocused_reason_label.configure(text="")
+            delay_ms = 200
         finally:
-            self.root.after(10, self.update_webcam)
+            self.root.after(delay_ms, self.update_webcam)
 
     def start_camera(self):
         if self.camera_active:
@@ -1170,10 +1178,10 @@ def validate_production_readiness():
         issues.append(f"Collaboration directory missing: {COLLAB_DIR}")
     
     # Check asset files exist (optional, warn only)
-    if not Path(SOUND_SESSION_END).exists():
-        app_logger.warning("Sound file missing: %s", SOUND_SESSION_END)
-    if not Path(SOUND_FOCUS_ALERT).exists():
-        app_logger.warning("Sound file missing: %s", SOUND_FOCUS_ALERT)
+    # if not Path(SOUND_SESSION_END).exists():
+    #     app_logger.warning("Sound file missing: %s", SOUND_SESSION_END)
+    # if not Path(SOUND_FOCUS_ALERT).exists():
+    #     app_logger.warning("Sound file missing: %s", SOUND_FOCUS_ALERT)
     
     # Check write permissions
     try:
