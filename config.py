@@ -21,10 +21,10 @@ from pathlib import Path
 
 APP_NAME = "Focus Guard"
 APP_VERSION = "1.0.0"
-AUTHOR = "Your Name/Team"
+AUTHOR = "Mayank/TomatoGuide"
 
 # ============================================================================
-# VALIDATION HELPER
+# VALIDATION HELPERu
 # ============================================================================
 
 
