@@ -1226,9 +1226,19 @@ class PomodoroTimer:
                     
                     if results.multi_face_landmarks:
                         for face_landmarks in results.multi_face_landmarks:
+                            # 1. AI Analysis
                             detector = FocusDetector(face_landmarks.landmark)
                             reason = detector.is_unfocused()
                             focused = reason is None
+                            
+                            # 2. Draw Face Grid (The "Visual Evidence" for the user)
+                            self.mp_drawing.draw_landmarks(
+                                image=frame_rgb,
+                                landmark_list=face_landmarks,
+                                connections=self.mp_face_mesh.FACEMESH_TESSELATION,
+                                landmark_drawing_spec=None,
+                                connection_drawing_spec=self.drawing_spec
+                            )
                             break
                     else:
                         focused = False
