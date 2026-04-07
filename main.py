@@ -797,10 +797,14 @@ class PomodoroTimer:
         report_text += f"Study Time: {report['total_study_time']} mins\n\n"
         report_text += report['summary']
         
-        textbox = ctk.CTkTextbox(dialog, height=200, width=400)
+        textbox = ctk.CTkTextbox(dialog, height=180, width=400)
         textbox.pack(pady=10)
         textbox.insert("0.0", report_text)
         textbox.configure(state="disabled")
+        
+        dashboard_url = "http://localhost:5000/dashboard"
+        ctk.CTkLabel(dialog, text=f"Teachers can view this at:\n{dashboard_url}", 
+                     font=("Helvetica", 10), text_color="#3498db").pack(pady=5)
         
         # Sync with backend if key is set
         student_name = self.student_name_entry.get().strip()
@@ -814,6 +818,7 @@ class PomodoroTimer:
                 report['avg_focus'], 
                 self.session_goals
             )
+            self.update_report_status(f"Report synced for {student_name}", state="connected")
 
         ctk.CTkButton(dialog, text="Close", command=dialog.destroy).pack(pady=10)
 
@@ -1163,9 +1168,20 @@ class PomodoroTimer:
                 if not focused:
                     self.unfocused_counter += 1
                     self.unfocused_reason_label.configure(text=reason, text_color="red")
-                    if self.unfocused_counter > 30: # Alert after ~1.5s of distraction
+                    
+                    # Logic: If unfocused for 15 frames (~1s), count as 1 distraction
+                    if self.unfocused_counter == 15:
+                        self.current_session_distractions += 1
+                        self.total_distractions += 1
+                        self.current_distractions_label.configure(
+                            text=f"Session Distractions: {self.current_session_distractions}"
+                        )
                         self.play_sound(SOUND_FOCUS_ALERT)
-                        self.unfocused_counter = 0 
+                    
+                    # Periodic alert if distraction continues
+                    if self.unfocused_counter > 60: 
+                        self.play_sound(SOUND_FOCUS_ALERT)
+                        self.unfocused_counter = 30 # Reset to midway to avoid immediate re-alerting
                 else:
                     self.unfocused_counter = 0
                     self.unfocused_reason_label.configure(text=f"Focus: {int(current_score)}%")

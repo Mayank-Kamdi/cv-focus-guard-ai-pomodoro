@@ -63,91 +63,180 @@ def export_csv(teacher_key):
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    """Enhanced teacher dashboard with Chart.js."""
+    """Detailed teacher dashboard with advanced analytics and session tracking."""
     teacher_key = request.args.get('teacher_key', '')
     reports = db.get_summary_stats(teacher_key) if teacher_key else []
+    
+    # Get total stats for the summary cards
+    total_students = len(reports)
+    avg_class_focus = sum(r[3] for r in reports) / total_students if total_students > 0 else 0
+    total_hours = sum(r[2] for r in reports) / 60 if total_students > 0 else 0
+
+    # Get raw sessions for the detailed log
+    sessions = db.get_student_sessions(teacher_key)[:20] if teacher_key else []
 
     html = """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Teacher Dashboard - Focus Guard AI</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Teacher AI Analytics - Focus Guard</title>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
         <style>
-            :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; }
-            body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-            .container { max-width: 1100px; margin: auto; }
+            :root { 
+                --bg: #030712; --card: #111827; --card-border: #1f2937;
+                --text: #f9fafb; --text-muted: #9ca3af;
+                --accent: #38bdf8; --success: #10b981; --warn: #f59e0b; --danger: #ef4444;
+            }
+            body { 
+                font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); 
+                margin: 0; padding: 20px; line-height: 1.5;
+            }
+            .container { max-width: 1200px; margin: auto; }
             header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-            .card { background: var(--card); padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px -1px #0000001a; margin-bottom: 1.5rem; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
-            th { cursor: pointer; color: var(--accent); }
-            .focus-high { color: #4ade80; font-weight: bold; }
-            .focus-mid { color: #fbbf24; }
-            .focus-low { color: #f87171; font-weight: bold; }
-            .alert-tag { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; }
-            input, button { padding: 10px 15px; border-radius: 6px; border: 1px solid #334155; }
-            input { background: #0f172a; color: white; width: 250px; }
-            button { background: var(--accent); color: #0f172a; border: none; font-weight: bold; cursor: pointer; }
-            .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
-            .export-btn { background: #10b981; color: white; text-decoration: none; padding: 10px 15px; border-radius: 6px; font-size: 0.9rem; }
+            
+            .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+            .stat-card { background: var(--card); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--card-border); }
+            .stat-value { font-size: 2rem; font-weight: 700; color: var(--accent); margin-bottom: 0.25rem; }
+            .stat-label { color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+            .card { background: var(--card); border: 1px solid var(--card-border); padding: 1.5rem; border-radius: 16px; margin-bottom: 1.5rem; overflow: hidden; }
+            .card-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+            
+            .charts-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+            
+            table { width: 100%; border-collapse: collapse; text-align: left; }
+            th { padding: 12px; border-bottom: 2px solid var(--card-border); color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+            td { padding: 14px 12px; border-bottom: 1px solid var(--card-border); font-size: 0.9375rem; }
+            
+            .badge { padding: 4px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+            .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+            .badge-warn { background: rgba(245, 158, 11, 0.1); color: var(--warn); }
+            .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+            input, button { padding: 12px 18px; border-radius: 8px; border: 1px solid var(--card-border); font-family: inherit; }
+            input { background: #1f2937; color: white; width: 280px; transition: border-color 0.2s; }
+            input:focus { outline: none; border-color: var(--accent); }
+            button { background: var(--accent); color: #030712; border: none; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+            button:hover { opacity: 0.9; }
+
+            .export-btn { background: var(--success); color: white; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; }
+            
+            .goal-chip { background: #374151; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin: 2px; display: inline-block; }
         </style>
     </head>
     <body onload="initCharts()">
         <div class="container">
             <header>
-                <h1>Focus Guard <span style="color:var(--accent)">AI</span> Dashboard</h1>
-                <form method="get" style="display: flex; gap: 10px;">
-                    <input type="text" name="teacher_key" value="{{ teacher_key }}" placeholder="Teacher Access Key">
-                    <button type="submit">Sync</button>
+                <div>
+                    <h1 style="margin: 0;">Focus Guard <span style="color:var(--accent)">AI</span></h1>
+                    <p style="color: var(--text-muted); margin: 0;">Education & Insight Platform</p>
+                </div>
+                <form method="get" style="display: flex; gap: 12px; align-items: center;">
+                    <input type="text" name="teacher_key" value="{{ teacher_key }}" placeholder="Access Key (8-chars)">
+                    <button type="submit">Sync Data</button>
                     {% if teacher_key %}
-                        <a href="/export-csv/{{ teacher_key }}" class="export-btn">Export CSV</a>
+                        <a href="/export-csv/{{ teacher_key }}" class="export-btn">Download CSV</a>
                     {% endif %}
                 </form>
             </header>
 
             {% if teacher_key %}
+            <!-- Summary Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">{{ total_students }}</div>
+                    <div class="stat-label">Active Students</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ "%.1f"|format(avg_class_focus) }}%</div>
+                    <div class="stat-label">Class Avg Focus</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">{{ "%.1f"|format(total_hours) }}</div>
+                    <div class="stat-label">Total Deep Work Hours</div>
+                </div>
+            </div>
+
             <div class="charts-grid">
                 <div class="card">
-                    <h3>Focus Performance Over Time</h3>
-                    <canvas id="focusChart" height="150"></canvas>
+                    <div class="card-title">📈 Group Retention Trend</div>
+                    <canvas id="focusChart" height="140"></canvas>
                 </div>
                 <div class="card">
-                    <h3>Focus vs Distraction Distribution</h3>
+                    <div class="card-title">🎯 Efficiency Ratio</div>
                     <canvas id="ratioChart"></canvas>
                 </div>
             </div>
 
             <div class="card">
-                <h3>Live Student Monitoring</h3>
+                <div class="card-title">👥 Student Performance Ranking</div>
                 <table id="studentTable">
                     <thead>
                         <tr>
-                            <th onclick="sortTable(0)">Student Name</th>
-                            <th onclick="sortTable(1)">Sessions</th>
-                            <th onclick="sortTable(2)">Total Time</th>
-                            <th onclick="sortTable(3)">Avg Focus Score</th>
-                            <th onclick="sortTable(4)">Distractions</th>
-                            <th>Status</th>
+                            <th>Student</th>
+                            <th>Sessions</th>
+                            <th>Total Time</th>
+                            <th>Avg Focus</th>
+                            <th>Distractions</th>
+                            <th>Current Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for row in reports %}
                         <tr>
-                            <td>{{ row[0] }}</td>
+                            <td style="font-weight: 600;">{{ row[0] }}</td>
                             <td>{{ row[1] }}</td>
-                            <td>{{ row[2] }}m</td>
-                            <td class="{{ 'focus-high' if row[3] > 80 else ('focus-low' if row[3] < 50 else 'focus-mid') }}">
-                                {{ "%.1f"|format(row[3]) }}%
+                            <td>{{ row[2] }} min</td>
+                            <td style="font-weight: 700;">
+                                <span style="color: {{ '#10b981' if row[3] > 80 else ('#ef4444' if row[3] < 50 else '#f59e0b') }}">
+                                    {{ "%.1f"|format(row[3]) }}%
+                                </span>
                             </td>
                             <td>{{ row[4] }}</td>
                             <td>
                                 {% if row[3] < 50 %}
-                                <span class="alert-tag">Needs Attention</span>
+                                <span class="badge badge-danger">Needs Intervention</span>
+                                {% elif row[3] < 75 %}
+                                <span class="badge badge-warn">Moderate</span>
                                 {% else %}
-                                <span style="color: #4ade80">● Stable</span>
+                                <span class="badge badge-success">High Engagement</span>
                                 {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <div class="card-title">🕒 Recent Session Log (Detailed)</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Student</th>
+                            <th>Dur</th>
+                            <th>Score</th>
+                            <th>Goals Tracked</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in sessions %}
+                        <tr>
+                            <td style="color: var(--text-muted); font-size: 0.8rem;">{{ s.timestamp }}</td>
+                            <td>{{ s.student_name }}</td>
+                            <td>{{ s.duration_mins }}m</td>
+                            <td>{{ "%.1f"|format(s.focus_score) }}%</td>
+                            <td>
+                                {% set goals_list = s.goals | from_json if s.goals and s.goals != '[]' else [] %}
+                                {% for goal in goals_list %}
+                                    <span class="goal-chip">{{ goal }}</span>
+                                {% else %}
+                                    <span style="color: var(--text-muted); font-style: italic;">No specific goals</span>
+                                {% endfor %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -166,84 +255,73 @@ def dashboard():
                         data: {
                             labels: data.map(d => d.period),
                             datasets: [{
-                                label: 'Avg Focus %',
+                                label: 'Class Focus %',
                                 data: data.map(d => d.avg_focus),
                                 borderColor: '#38bdf8',
+                                borderWidth: 3,
+                                pointBackgroundColor: '#38bdf8',
                                 fill: true,
-                                backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                                tension: 0.3
+                                backgroundColor: 'rgba(56, 189, 248, 0.05)',
+                                tension: 0.4
                             }]
                         },
-                        options: { scales: { y: { min: 0, max: 100 } } }
+                        options: { 
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            scales: { 
+                                y: { min: 0, max: 100, grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } },
+                                x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                            }
+                        }
                     });
 
                     const ctxPie = document.getElementById('ratioChart').getContext('2d');
                     const totalDists = data.reduce((a, b) => a + b.total_distractions, 0);
-                    const totalFocus = data.reduce((a, b) => a + b.avg_focus, 0) / (data.length || 1);
+                    const totalDuration = data.reduce((a, b) => a + b.total_duration, 0);
                     
                     new Chart(ctxPie, {
                         type: 'doughnut',
                         data: {
-                            labels: ['Avg Focus', 'Total Distractions'],
+                            labels: ['Total Work (m)', 'Distractions'],
                             datasets: [{
-                                data: [totalFocus, totalDists],
-                                backgroundColor: ['#38bdf8', '#f87171']
+                                data: [totalDuration, totalDists],
+                                backgroundColor: ['#10b981', '#ef4444'],
+                                borderWidth: 0,
+                                hoverOffset: 10
                             }]
+                        },
+                        options: {
+                            plugins: {
+                                legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 20 } }
+                            },
                         }
                     });
 
-                    // Auto-refresh every 10 seconds
-                    setTimeout(() => location.reload(), 10000);
-                }
-
-                function sortTable(n) {
-                    var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
-                    table = document.getElementById("studentTable");
-                    switching = true;
-                    dir = "asc";
-                    while (switching) {
-                        switching = false;
-                        rows = table.rows;
-                        for (i = 1; i < (rows.length - 1); i++) {
-                            shouldSwitch = false;
-                            x = rows[i].getElementsByTagName("TD")[n];
-                            y = rows[i + 1].getElementsByTagName("TD")[n];
-                            if (dir == "asc") {
-                                if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
-                                    shouldSwitch = true;
-                                    break;
-                                }
-                            } else if (dir == "desc") {
-                                if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
-                                    shouldSwitch = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (shouldSwitch) {
-                            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-                            switching = true;
-                            switchcount ++;
-                        } else {
-                            if (switchcount == 0 && dir == "asc") {
-                                dir = "desc";
-                                switching = true;
-                            }
-                        }
-                    }
+                    // Auto-refresh every 30 seconds to be less intrusive
+                    setTimeout(() => location.reload(), 30000);
                 }
             </script>
             {% else %}
-            <div class="card" style="text-align: center; padding: 4rem;">
-                <h2 style="color: var(--accent)">Welcome, Educator</h2>
-                <p>Please enter your 8-character teacher key to access student reports and real-time focus analytics.</p>
+            <div class="card" style="text-align: center; padding: 6rem 2rem;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">🎓</div>
+                <h2 style="color: var(--accent); margin-top: 0;">Educator Access Terminal</h2>
+                <p style="color: var(--text-muted); max-width: 500px; margin: auto;">Enter your secure teacher access key to visualize class performance metrics, download historical reports, and monitor real-time focus trends.</p>
             </div>
             {% endif %}
         </div>
     </body>
     </html>
     """
-    return render_template_string(html, teacher_key=teacher_key, reports=reports)
+    # Helper to parse JSON in jinja (we can just add it to env or handle it in the route)
+    import json
+    app.jinja_env.filters['from_json'] = json.loads
+    return render_template_string(html, 
+                                  teacher_key=teacher_key, 
+                                  reports=reports, 
+                                  total_students=total_students,
+                                  avg_class_focus=avg_class_focus,
+                                  total_hours=total_hours,
+                                  sessions=sessions)
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
