@@ -5,6 +5,7 @@ import time
 import pygame
 import cv2
 import mediapipe as mp
+import mediapipe.python.solutions.drawing_styles as mp_drawing_styles
 from tkinter import filedialog
 from PIL import Image
 import math
@@ -111,6 +112,7 @@ class PomodoroTimer:
         self.mp_face_mesh = mp.solutions.face_mesh
         self.face_mesh = None
         self.mp_drawing = mp.solutions.drawing_utils
+        self.mp_drawing_styles = mp_drawing_styles
         self.drawing_spec = self.mp_drawing.DrawingSpec(
             thickness=1, circle_radius=1, color=(0, 255, 0)
         )
@@ -544,10 +546,10 @@ class PomodoroTimer:
                     {"goals": self.goals},
                 )
 
-    def show_session_completion_dialog(self):
+    def show_session_completion_dialog(self, report):
         dialog = ctk.CTkToplevel(self.root)
         dialog.title("Session Complete!")
-        dialog.geometry("400x300")
+        dialog.geometry("450x550")
         dialog.resizable(False, False)
         dialog.grab_set()
 
@@ -565,50 +567,62 @@ class PomodoroTimer:
         congrats_label = ctk.CTkLabel(
             dialog,
             text="🎉 Congratulations! 🎉",
-            font=("Helvetica", 20, "bold"),
+            font=("Helvetica", 24, "bold"),
             text_color="#00FF00",
         )
         congrats_label.pack(pady=15)
 
+        # Summary Stats
+        stats_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        stats_frame.pack(pady=5)
+        
+        report_summary = f"Avg Focus: {report['avg_focus']}%  |  Distractions: {report['total_distractions']}"
+        ctk.CTkLabel(stats_frame, text=report_summary, font=("Helvetica", 14, "bold")).pack()
+        ctk.CTkLabel(stats_frame, text=f"Time: {report['total_study_time']} mins", font=("Helvetica", 12)).pack()
+
         message_label = ctk.CTkLabel(
             dialog,
             text="You've completed a focused work session!",
-            font=("Helvetica", 14),
+            font=("Helvetica", 13),
         )
-        message_label.pack(pady=10)
+        message_label.pack(pady=5)
 
         # Goals completed section
+        goals_heading = ctk.CTkLabel(
+            dialog, text="Goals Completed:", font=("Helvetica", 12, "bold")
+        )
+        goals_heading.pack(pady=(10, 5))
+
+        goals_text_frame = ctk.CTkFrame(dialog)
+        goals_text_frame.pack(pady=5, padx=20, fill="both", expand=True)
+
+        goals_display = ctk.CTkTextbox(goals_text_frame, height=150)
+        goals_display.pack(fill="both", expand=True)
+        goals_display.configure(state="normal")
+
         if self.session_goals:
-            goals_heading = ctk.CTkLabel(
-                dialog, text="Goals Completed:", font=("Helvetica", 12, "bold")
-            )
-            goals_heading.pack(pady=(10, 5))
-
-            goals_text_frame = ctk.CTkFrame(dialog)
-            goals_text_frame.pack(pady=5, padx=20, fill="both", expand=True)
-
-            goals_display = ctk.CTkTextbox(goals_text_frame, height=120, width=350)
-            goals_display.pack(fill="both", expand=True)
-            goals_display.configure(state="normal")
-
             for goal in self.session_goals:
                 goals_display.insert("end", f"✓ {goal}\n")
-
-            goals_display.configure(state="disabled")
         else:
-            no_goals_label = ctk.CTkLabel(
-                dialog,
-                text="No goals set for this session.",
-                font=("Helvetica", 12),
-                text_color="#CCCCCC",
-            )
-            no_goals_label.pack(pady=20)
+            goals_display.insert("end", "No specific goals were set.\n")
+        
+        goals_display.configure(state="disabled")
 
-        # Close button
-        close_button = ctk.CTkButton(
-            dialog, text="Continue", command=dialog.destroy, font=("Helvetica", 12)
+        # Feedback text
+        feedback_label = ctk.CTkLabel(dialog, text=report['summary'], font=("Helvetica", 11, "italic"), wraplength=400)
+        feedback_label.pack(pady=10)
+
+        # Start Break button
+        start_break_button = ctk.CTkButton(
+            dialog, 
+            text="Start Break", 
+            command=lambda: [dialog.destroy(), self.next_session()], 
+            font=("Helvetica", 14, "bold"),
+            fg_color="#27ae60",
+            hover_color="#1e8449",
+            height=40
         )
-        close_button.pack(pady=15)
+        start_break_button.pack(pady=20)
 
     def show_break_completion_dialog(self):
         dialog = ctk.CTkToplevel(self.root)
@@ -785,42 +799,6 @@ class PomodoroTimer:
         }
         self._show_report_dialog_automated(report)
 
-    def _show_report_dialog_automated(self, report):
-        
-        dialog = ctk.CTkToplevel(self.root)
-        dialog.title("Teacher Report")
-        dialog.geometry("450x400")
-        
-        ctk.CTkLabel(dialog, text="Session Report", font=("Helvetica", 18, "bold")).pack(pady=10)
-        report_text = f"Avg Focus Score: {report['avg_focus']}/100\n"
-        report_text += f"Total Distractions: {report['total_distractions']}\n"
-        report_text += f"Study Time: {report['total_study_time']} mins\n\n"
-        report_text += report['summary']
-        
-        textbox = ctk.CTkTextbox(dialog, height=180, width=400)
-        textbox.pack(pady=10)
-        textbox.insert("0.0", report_text)
-        textbox.configure(state="disabled")
-        
-        dashboard_url = "http://localhost:5000/dashboard"
-        ctk.CTkLabel(dialog, text=f"Teachers can view this at:\n{dashboard_url}", 
-                     font=("Helvetica", 10), text_color="#3498db").pack(pady=5)
-        
-        # Sync with backend if key is set
-        student_name = self.student_name_entry.get().strip()
-        teacher_key = self.teacher_key_entry.get().strip()
-        if student_name and teacher_key:
-            self.send_to_backend(
-                student_name, 
-                teacher_key, 
-                report['total_study_time'], 
-                report['total_distractions'], 
-                report['avg_focus'], 
-                self.session_goals
-            )
-            self.update_report_status(f"Report synced for {student_name}", state="connected")
-
-        ctk.CTkButton(dialog, text="Close", command=dialog.destroy).pack(pady=10)
 
     def generate_new_teacher_key(self):
         new_key = self.key_manager.generate_key()
@@ -1088,12 +1066,13 @@ class PomodoroTimer:
                 if teacher_key != "DEFAULT":
                     self.send_to_backend(student_name, teacher_key, current_work_mins, self.last_session_distractions, focus_score, self.session_goals)
 
-                # Show completion dialog with goals
-                self._show_report_dialog_automated(report)
+                # Show completion dialog and WAIT for user to click "Start Break"
+                self.show_session_completion_dialog(report)
+                return  # Return early, dialog will trigger next_session()
+                
             elif self.current_session_type in ["Short Break", "Long Break"]:
                 self.show_break_completion_dialog()
-
-            self.next_session()
+                self.next_session()
         except Exception as exc:
             app_logger.warning("Timer completion failed: %s", exc)
 
@@ -1169,19 +1148,21 @@ class PomodoroTimer:
                     self.unfocused_counter += 1
                     self.unfocused_reason_label.configure(text=reason, text_color="red")
                     
-                    # Logic: If unfocused for 15 frames (~1s), count as 1 distraction
-                    if self.unfocused_counter == 15:
-                        self.current_session_distractions += 1
-                        self.total_distractions += 1
-                        self.current_distractions_label.configure(
-                            text=f"Session Distractions: {self.current_session_distractions}"
-                        )
-                        self.play_sound(SOUND_FOCUS_ALERT)
-                    
-                    # Periodic alert if distraction continues
-                    if self.unfocused_counter > 60: 
-                        self.play_sound(SOUND_FOCUS_ALERT)
-                        self.unfocused_counter = 30 # Reset to midway to avoid immediate re-alerting
+                    # Logic: Only count distractions and play sounds if session is ACTIVE
+                    if self.is_running and not self.is_paused and self.current_session_type == "Work":
+                        # If unfocused for 15 frames (~1s), count as 1 distraction
+                        if self.unfocused_counter == 15:
+                            self.current_session_distractions += 1
+                            self.total_distractions += 1
+                            self.current_distractions_label.configure(
+                                text=f"Session Distractions: {self.current_session_distractions}"
+                            )
+                            self.play_sound(SOUND_FOCUS_ALERT)
+                        
+                        # Periodic alert if distraction continues
+                        if self.unfocused_counter > 60: 
+                            self.play_sound(SOUND_FOCUS_ALERT)
+                            self.unfocused_counter = 30 # Reset to midway
                 else:
                     self.unfocused_counter = 0
                     self.unfocused_reason_label.configure(text=f"Focus: {int(current_score)}%")
@@ -1226,19 +1207,18 @@ class PomodoroTimer:
                     
                     if results.multi_face_landmarks:
                         for face_landmarks in results.multi_face_landmarks:
-                            # 1. AI Analysis
-                            detector = FocusDetector(face_landmarks.landmark)
-                            reason = detector.is_unfocused()
-                            focused = reason is None
-                            
-                            # 2. Draw Face Grid (The "Visual Evidence" for the user)
+                            # Draw the grid on the frame
                             self.mp_drawing.draw_landmarks(
                                 image=frame_rgb,
                                 landmark_list=face_landmarks,
                                 connections=self.mp_face_mesh.FACEMESH_TESSELATION,
                                 landmark_drawing_spec=None,
-                                connection_drawing_spec=self.drawing_spec
+                                connection_drawing_spec=self.mp_drawing_styles.get_default_face_mesh_tesselation_style()
                             )
+                            
+                            detector = FocusDetector(face_landmarks.landmark)
+                            reason = detector.is_unfocused()
+                            focused = reason is None
                             break
                     else:
                         focused = False
