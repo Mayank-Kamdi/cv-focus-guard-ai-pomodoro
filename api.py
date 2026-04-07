@@ -1,15 +1,24 @@
-from flask import Flask, request, jsonify, render_template_string, Response
+from flask import Flask, request, jsonify, render_template_string, Response, redirect, url_for
 from storage import DatabaseManager
 from pathlib import Path
 import os
 import csv
 import io
+import json
 
 app = Flask(__name__)
 # Set proper DB path (relative to this file)
 db_path = Path(os.path.dirname(os.path.abspath(__file__))) / "data" / "focus_guard.db"
 db_path.parent.mkdir(parents=True, exist_ok=True)
 db = DatabaseManager(db_path)
+
+# Register custom jinja filter
+app.jinja_env.filters['from_json'] = json.loads
+
+@app.route('/')
+def home():
+    """Redirect root to dashboard."""
+    return redirect(url_for('dashboard'))
 
 @app.route('/submit-data', methods=['POST'])
 def submit_data():
@@ -312,9 +321,6 @@ def dashboard():
     </body>
     </html>
     """
-    # Helper to parse JSON in jinja (we can just add it to env or handle it in the route)
-    import json
-    app.jinja_env.filters['from_json'] = json.loads
     return render_template_string(html, 
                                   teacher_key=teacher_key, 
                                   reports=reports, 
