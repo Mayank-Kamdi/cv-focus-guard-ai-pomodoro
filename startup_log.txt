@@ -1,12 +1,15 @@
-2026-04-07 13:14:37 - logger - INFO - Production readiness check passed
+2026-04-07 14:58:47 - logger - INFO - Production readiness check passed
 INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-W0000 00:00:1775547877.558022   25648 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
-W0000 00:00:1775547877.573261    3848 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
-2026-04-07 13:14:37 - logger - INFO - Attempting camera with backend 700
-2026-04-07 13:14:38 - logger - INFO - Camera worker thread started
-2026-04-07 13:14:38 - logger - INFO - Camera and worker thread active
-W0000 00:00:1775547878.583918   13964 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
-W0000 00:00:1775547878.617909   12532 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1775554128.041325   30476 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1775554128.050580   22136 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+2026-04-07 14:58:48 - logger - INFO - Attempting camera with backend 700
+2026-04-07 14:58:48 - logger - INFO - Camera worker thread started
+2026-04-07 14:58:48 - logger - INFO - Camera and worker thread active
+W0000 00:00:1775554128.588269   30220 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1775554128.599691   24520 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
 C:\Users\LOQ\Desktop\cv-focus-guard-ai-pomodoro-main\.venv\Lib\site-packages\google\protobuf\symbol_database.py:55: UserWarning: SymbolDatabase.GetPrototype() is deprecated. Please use message_factory.GetMessageClass() instead. SymbolDatabase.GetPrototype() will be removed soon.
   warnings.warn('SymbolDatabase.GetPrototype() is deprecated. Please '
+pygame 2.6.1 (SDL 2.28.4, Python 3.11.15)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+Closing app...
